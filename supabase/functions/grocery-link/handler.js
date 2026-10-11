@@ -1,3 +1,4 @@
+import { cheapestPurchase, validOffers } from "../_shared/pricing.js";
 const units = {
   pieces: "each",
   heads: "each",
@@ -8,7 +9,7 @@ const units = {
   tbsp: "tbsp",
   tsp: "tsp",
 };
-export function groceryItems(snapshot, catalog) {
+export function groceryItems(snapshot, catalog, priceRows = []) {
   const state = snapshot?.state;
   if (!state?.locked?.ids?.length)
     throw new Error("Finalize your menu before creating a grocery link.");
@@ -42,9 +43,22 @@ export function groceryItems(snapshot, catalog) {
         i.unit === "cans"
           ? `${i.name}, ${i.name === "Coconut milk" ? "13.5" : i.name === "Crushed tomatoes" ? "28" : "15"} oz can`
           : i.name;
+      const offers =
+        state.prices?.[i.name] ||
+        priceRows.find((row) => row.name === i.name)?.offers;
+      let recommendation = "";
+      if (validOffers(offers)) {
+        const quote = cheapestPurchase(i.quantity, offers);
+        recommendation = `; estimated package choice: ${quote.counts
+          .map((n, j) =>
+            n ? `${n} x ${offers[j].label} (${offers[j].size} ${i.unit})` : "",
+          )
+          .filter(Boolean)
+          .join(" + ")}`;
+      }
       return {
         name,
-        display_text: `${i.name} — ${quantity} ${i.unit}`,
+        display_text: `${i.name} — ${quantity} ${i.unit}${recommendation}`,
         measurements: [{ quantity, unit }],
       };
     });
@@ -153,7 +167,20 @@ export function createHandler(env, request = fetch) {
         return reply(503, {
           error: "Recipes could not be loaded. Try again or copy your list.",
         });
-      const items = groceryItems(snapshot, await catalogResponse.json());
+      const priceResponse = await request(
+        `${base}/rest/v1/dinner_pricebook?select=name,offers`,
+        { headers: apiHeaders, signal: AbortSignal.timeout(10000) },
+      );
+      if (!priceResponse.ok)
+        return reply(503, {
+          error:
+            "Package estimates could not be loaded. Apply the latest database migration or copy your shopping list.",
+        });
+      const items = groceryItems(
+        snapshot,
+        await catalogResponse.json(),
+        await priceResponse.json(),
+      );
       if (!items.length)
         return reply(400, {
           error:

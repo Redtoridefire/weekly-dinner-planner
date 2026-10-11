@@ -30,14 +30,14 @@ test("week rolls over on Monday including Sunday and year boundaries", () => {
 });
 test("household preferences exclude incompatible meals even with winning votes", () => {
   const preferences = { vegetarian: true, quick: true };
-  assert.equal(eligibleMeals(preferences).length, 4);
+  assert.equal(eligibleMeals(preferences).length, 7);
   const selected = rankMeals(
     { alex: ["chicken", "soup", "curry"], sam: ["chicken"] },
     7,
     preferences,
   );
   assert.equal(selected[0].id, "curry");
-  assert.equal(selected.length, 4);
+  assert.equal(selected.length, 7);
   assert.ok(selected.every((m) => m.vegetarian && m.time <= 30));
 });
 test("duplicate votes from a household member only count once", () => {

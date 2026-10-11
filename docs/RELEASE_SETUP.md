@@ -1,12 +1,17 @@
 # Release setup — owner actions
 
-The repository contains the frontend, database migration, Edge Function, tests, and hosting configuration. These steps connect your accounts; no secret values belong in chat or in Git.
+The repository contains the frontend, database migrations, Edge Function, tests, and hosting configuration. These steps connect your accounts; no secret values belong in chat or in Git.
 
 ## 1. Create the Supabase project
 
-Create a project in your Supabase account. In its SQL Editor, run the complete contents of `supabase/migrations/202610110001_dinner_table.sql` once. Alternatively, link the Supabase CLI to your project and run `supabase db push`. Do not repeatedly rerun the initial migration over an installed database.
+Create a project in your Supabase account. In its SQL Editor, run these complete files once, in order:
 
-The migration creates the recipe catalog, households, members, week plans, votes, private invitations, grocery rate limits, RLS policies, and authenticated RPC functions. It uses Supabase's existing `auth.users` and `auth.uid()`; do not create substitutes for those in your real project. The test suite creates substitutes only inside its isolated test database.
+1. `supabase/migrations/202610110001_dinner_table.sql`
+2. `supabase/migrations/202610110002_savings_keto.sql`
+
+Alternatively, link the Supabase CLI to your project and run `supabase db push`. If the first migration is already installed, apply only the new savings/keto migration and redeploy the updated grocery-link Edge Function. The upgrade preserves existing votes and finalized menus. Do not rerun an installed migration. The frontend reports a setup error when connected to a backend missing the savings/keto migration.
+
+The migrations create the recipe catalog, households, members, week plans, votes, private invitations, grocery rate limits, RLS policies, and authenticated RPC functions, the package price catalog, savings settings, and keto recipes. It uses Supabase's existing `auth.users` and `auth.uid()`; do not create substitutes for those in your real project. The test suite creates substitutes only inside its isolated test database.
 
 Copy the **project URL** and **public publishable key** from project settings. A legacy `anon` JWT key also works. These two values are public browser configuration. Service-role keys, `sb_secret_` keys, and database passwords must never be used here.
 
@@ -55,7 +60,7 @@ In Supabase Edge Function Secrets, set:
 
 Supabase supplies `SUPABASE_URL` and `SUPABASE_ANON_KEY` automatically to hosted Edge Functions. Do not replace these with a service-role key. If testing functions locally, supply the equivalent local public URL and anon key through the CLI's supported local configuration.
 
-The development destination is `connect.dev.instacart.tools`; production is `connect.instacart.com`. The handler sends `POST /idp/v1/products/products_link` with a `shopping_list` payload and expects `products_link_url`. It sends only canonical recipe ingredients and quantities, not member email addresses, a delivery address, or payment details. Whole produce and packaged items are rounded up to whole quantities; grocery product matching remains a checkout review step.
+The development destination is `connect.dev.instacart.tools`; production is `connect.instacart.com`. The handler sends `POST /idp/v1/products/products_link` with a `shopping_list` payload and expects `products_link_url`. It sends canonical recipe ingredients, quantities, and estimated package recommendations (including your package-label notes), without automatically adding member email addresses, a delivery address, or payment details. Whole produce and packaged items are rounded up to whole quantities; grocery product matching remains a checkout review step. Package recommendations do not select a retailer SKU or guarantee the lowest checkout price.
 
 Missing secrets, invalid sessions, unfinalized menus, stale revisions, provider failures, and exhausted limits have visible recovery messages. Each household is limited to one attempt per 30 seconds and 20 per UTC day. Failed provider attempts count toward that limit. Copy / download / print remain usable without any Instacart integration.
 

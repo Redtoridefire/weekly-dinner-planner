@@ -706,7 +706,7 @@ dialog h2 {
 .preferences label {
   min-height: 44px;
 }
-.preferences input {
+.preferences input[type="checkbox"] {
   width: 18px;
   height: 18px;
 }
@@ -839,5 +839,121 @@ summary {
     display: block;
     font-size: 20pt;
     margin: 20px 0;
+  }
+}
+
+.budget-summary {
+  display: grid;
+  gap: 0.4rem;
+  padding: 1rem;
+  margin: 1rem 0;
+  background: #f3f4e9;
+  border: 1px solid #c8cdb0;
+  border-radius: 12px;
+}
+.budget-summary strong {
+  font-size: 1.1rem;
+}
+.budget-summary small,
+.meal-price small {
+  display: block;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: #4c5345;
+}
+.budget-warning {
+  color: #813316;
+  font-weight: 600;
+}
+.savings-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+.savings-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.meal-price {
+  margin: 0.6rem 0;
+  font-weight: 600;
+}
+.meal-price small {
+  font-weight: 400;
+  margin-top: 0.25rem;
+}
+.package-choice {
+  margin: 0.25rem 1rem 0.8rem 2.5rem;
+  font-size: 0.85rem;
+  color: #4c5345;
+}
+.price-entry {
+  border-top: 1px solid #c8cdb0;
+  padding: 0.7rem 0;
+}
+.price-entry summary small {
+  display: inline-block;
+  margin-left: 0.5rem;
+  font-weight: 400;
+}
+.price-entry form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.price-entry fieldset {
+  display: grid;
+  gap: 0.4rem;
+  flex: 1 1 220px;
+  min-width: 0;
+  border: 1px solid #c8cdb0;
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+.price-entry input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+.price-entry label {
+  min-height: 0;
+}
+#price-editor > label {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  margin: 1rem 0;
+}
+#price-search {
+  width: 100%;
+  min-height: 44px;
+}
+#price-forms {
+  display: block;
+}
+.savings-fields input,
+.savings-fields select {
+  min-height: 44px;
+  max-width: 100%;
+}
+.price-entry button {
+  flex-basis: 100%;
+}
+@media print {
+  .shopping-item:has(.ingredient.checked) {
+    display: none;
+  }
+  .budget-summary {
+    border: 0;
+    padding: 0;
+    background: none;
+  }
+  .package-choice {
+    color: black;
   }
 }

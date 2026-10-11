@@ -1,3 +1,9 @@
+import {
+  priceBook,
+  normalizePrices,
+  cheapestPurchase,
+  validOffers,
+} from "./prices.js";
 export const meals = [
   {
     id: "tacos",
@@ -160,12 +166,150 @@ export const meals = [
     steps:
       "Chop onion and carrots; sauté in oil for 5 minutes. Add rinsed lentils, tomatoes and broth. Simmer 30 minutes or until lentils are tender. Serve with bread.",
   },
+  {
+    id: "keto-eggs",
+    name: "Cheesy cabbage & egg skillet",
+    emoji: "🍳",
+    color: "#e9e4c9",
+    time: 20,
+    vegetarian: true,
+    keto: true,
+    description:
+      "An economical one-pan dinner of tender cabbage, eggs, and melted cheddar.",
+    ingredients: [
+      ["Eggs", "pieces", 8],
+      ["Cabbage", "heads", 0.5],
+      ["Cheddar", "g", 100],
+      ["Butter", "g", 30],
+    ],
+    steps:
+      "Thinly slice cabbage and sauté in butter until tender, about 10 minutes. Add beaten eggs and cook until set and the egg dish reaches 160°F / 71°C. Finish with cheddar. Choose cheese made with vegetarian rennet if needed.",
+  },
+  {
+    id: "keto-frittata",
+    name: "Broccoli cheddar frittata",
+    emoji: "🥚",
+    color: "#dfe7cf",
+    time: 30,
+    vegetarian: true,
+    keto: true,
+    description: "A filling, low-carb egg bake with broccoli and cheddar.",
+    ingredients: [
+      ["Eggs", "pieces", 8],
+      ["Broccoli", "heads", 1],
+      ["Cheddar", "g", 120],
+      ["Cream", "ml", 100],
+      ["Butter", "g", 20],
+    ],
+    steps:
+      "Heat oven to 400°F / 200°C. Chop broccoli and sauté in butter in an oven-safe pan until tender. Whisk eggs and cream, add to pan, sprinkle with cheddar, and bake 15–20 minutes until the center reaches 160°F / 71°C. Use vegetarian-certified cheese if needed.",
+  },
+  {
+    id: "keto-cabbage",
+    name: "Chicken & cabbage skillet",
+    emoji: "🥬",
+    color: "#e2e8d3",
+    time: 25,
+    vegetarian: false,
+    keto: true,
+    description:
+      "Budget-friendly chicken thighs and cabbage with garlic and olive oil.",
+    ingredients: [
+      ["Chicken thighs", "g", 700],
+      ["Cabbage", "heads", 0.5],
+      ["Garlic", "cloves", 2],
+      ["Olive oil", "tbsp", 2],
+    ],
+    steps:
+      "Cut boneless chicken into strips. Sauté in olive oil, then add thinly sliced cabbage and minced garlic. Cook until cabbage is tender and every piece of chicken reaches 165°F / 74°C.",
+  },
+  {
+    id: "keto-zucchini",
+    name: "Creamy garlic chicken & zucchini",
+    emoji: "🍗",
+    color: "#e5dfd1",
+    time: 30,
+    vegetarian: false,
+    keto: true,
+    description:
+      "Chicken thighs, zucchini, and a creamy garlic sauce, without pasta.",
+    ingredients: [
+      ["Chicken thighs", "g", 700],
+      ["Zucchini", "g", 600],
+      ["Cream", "ml", 100],
+      ["Garlic", "cloves", 2],
+      ["Olive oil", "tbsp", 1],
+    ],
+    steps:
+      "Cut boneless chicken into bite-sized pieces and brown in olive oil. Add sliced zucchini and garlic. Stir in cream and simmer until chicken reaches 165°F / 74°C and zucchini is tender.",
+  },
+  {
+    id: "keto-wraps",
+    name: "Cheeseburger lettuce wraps",
+    emoji: "🥬",
+    color: "#e9ddce",
+    time: 25,
+    vegetarian: false,
+    keto: true,
+    description:
+      "All the burger flavor in crisp lettuce leaves, without buns or fries.",
+    ingredients: [
+      ["Ground beef", "g", 600],
+      ["Lettuce", "heads", 0.5],
+      ["Tomatoes", "pieces", 1],
+      ["Cheddar", "g", 80],
+      ["Olive oil", "tbsp", 1],
+    ],
+    steps:
+      "Form beef into small patties. Cook in olive oil to 160°F / 71°C, then add cheddar. Wrap in washed lettuce leaves with sliced tomato. Avoid sweetened sauces.",
+  },
+  {
+    id: "keto-salmon",
+    name: "Lemon butter salmon & broccoli",
+    emoji: "🐟",
+    color: "#dde7e8",
+    time: 30,
+    vegetarian: false,
+    keto: true,
+    description:
+      "A simple salmon supper with buttery broccoli and fresh lemon.",
+    ingredients: [
+      ["Salmon", "g", 600],
+      ["Broccoli", "heads", 1],
+      ["Butter", "g", 40],
+      ["Lemons", "pieces", 1],
+    ],
+    steps:
+      "Heat oven to 400°F / 200°C. Place salmon and small broccoli florets on a tray, add butter and lemon juice, and roast until salmon reaches 145°F / 63°C, about 15–20 minutes. Cook broccoli longer if needed.",
+  },
+  {
+    id: "keto-tofu",
+    name: "Sesame tofu & zucchini skillet",
+    emoji: "🥢",
+    color: "#e6e8d3",
+    time: 25,
+    vegetarian: true,
+    keto: true,
+    description:
+      "Crispy firm tofu and zucchini with ginger and unsweetened soy sauce.",
+    ingredients: [
+      ["Firm tofu", "g", 600],
+      ["Zucchini", "g", 600],
+      ["Soy sauce", "ml", 30],
+      ["Ginger", "g", 10],
+      ["Sesame seeds", "tbsp", 1],
+      ["Olive oil", "tbsp", 2],
+    ],
+    steps:
+      "Pat tofu dry, cube, and sauté in olive oil until golden. Add sliced zucchini and grated ginger, cooking until tender. Toss with unsweetened soy sauce and sesame seeds. Check tofu and sauce labels for carbohydrate content.",
+  },
 ];
 export function eligibleMeals(preferences = {}) {
   return meals.filter(
     (m) =>
       (!preferences.vegetarian || m.vegetarian) &&
-      (!preferences.quick || m.time <= 30),
+      (!preferences.quick || m.time <= 30) &&
+      (!preferences.keto || m.keto === true),
   );
 }
 export function rankMeals(votes, count, preferences = {}) {
@@ -241,16 +385,134 @@ export function normalizeState(input = {}) {
     preferences: {
       vegetarian: input.preferences?.vegetarian === true,
       quick: input.preferences?.quick === true,
+      keto: input.preferences?.keto === true,
     },
+    strategy: ["votes", "balanced", "cheapest"].includes(input.strategy)
+      ? input.strategy
+      : "votes",
+    budget:
+      Number.isFinite(input.budget) &&
+      input.budget >= 0 &&
+      input.budget <= 10000
+        ? Math.round(input.budget * 100) / 100
+        : 0,
+    prices: normalizePrices(input.prices),
     revision: bounded(input.revision, 0, Number.MAX_SAFE_INTEGER, 0),
   };
 }
 export function selectedMeals(state) {
-  return state.locked
-    ? state.locked.ids
-        .map((id) => meals.find((m) => m.id === id))
-        .filter(Boolean)
-    : rankMeals(state.votes, state.dinners, state.preferences);
+  return planResult(state).meals;
+}
+export function estimateCart(
+  selected,
+  servings = 4,
+  pantry = [],
+  prices = {},
+  cache = new Map(),
+) {
+  const items = shoppingList(selected, servings).map((item) => {
+    if (!Object.hasOwn(priceBook, item.name))
+      throw new Error(`No price estimate for ${item.name}.`);
+    const key = `${item.name}|${item.amount}`;
+    let quote = cache.get(key);
+    if (!quote) {
+      const offers = prices[item.name] || priceBook[item.name].offers;
+      quote = { ...cheapestPurchase(item.amount, offers), offers };
+      cache.set(key, quote);
+    }
+    return { ...item, ...quote, owned: pantry.includes(item.name) };
+  });
+  const cents = items.filter((i) => !i.owned).reduce((n, i) => n + i.cents, 0),
+    before = items.reduce((n, i) => n + i.cents, 0);
+  return {
+    items,
+    total: cents / 100,
+    beforePantry: before / 100,
+    pantrySavings: (before - cents) / 100,
+  };
+}
+export function planResult(state) {
+  const cache = new Map();
+  const ordinary = rankMeals(state.votes, state.dinners, state.preferences);
+  const baseline = estimateCart(
+    ordinary,
+    state.servings,
+    state.pantry,
+    state.prices,
+    cache,
+  );
+  let selected = ordinary;
+  if (state.locked)
+    selected = state.locked.ids
+      .map((id) => meals.find((m) => m.id === id))
+      .filter(Boolean);
+  else if (state.strategy !== "votes") {
+    const pool = eligibleMeals(state.preferences),
+      count = Math.min(state.dinners, pool.length),
+      scores = new Map();
+    Object.values(state.votes).forEach((ids) =>
+      new Set(ids).forEach((id) => scores.set(id, (scores.get(id) || 0) + 1)),
+    );
+    let best = null;
+    function visit(start, combo, score) {
+      if (combo.length === count) {
+        const cost = estimateCart(
+          combo,
+          state.servings,
+          state.pantry,
+          state.prices,
+          cache,
+        ).total;
+        const feasible =
+          state.budget === 0 ||
+          Math.round(cost * 100) <= Math.round(state.budget * 100);
+        const candidate = { meals: [...combo], cost, score, feasible };
+        const better =
+          !best ||
+          (state.strategy === "cheapest"
+            ? cost < best.cost || (cost === best.cost && score > best.score)
+            : feasible !== best.feasible
+              ? feasible
+              : feasible
+                ? score > best.score ||
+                  (score === best.score && cost < best.cost)
+                : cost < best.cost ||
+                  (cost === best.cost && score > best.score));
+        if (better) best = candidate;
+        return;
+      }
+      for (let i = start; i <= pool.length - (count - combo.length); i++) {
+        combo.push(pool[i]);
+        visit(i + 1, combo, score + (scores.get(pool[i].id) || 0));
+        combo.pop();
+      }
+    }
+    visit(0, [], 0);
+    selected = (best?.meals || []).sort(
+      (a, b) =>
+        (scores.get(b.id) || 0) - (scores.get(a.id) || 0) ||
+        meals.indexOf(a) - meals.indexOf(b),
+    );
+  }
+  const estimate = estimateCart(
+    selected,
+    state.servings,
+    state.pantry,
+    state.prices,
+    cache,
+  );
+  return {
+    meals: selected,
+    estimate,
+    baseline: baseline.total,
+    savings: Math.max(
+      0,
+      Math.round((baseline.total - estimate.total) * 100) / 100,
+    ),
+    overBudget:
+      state.budget > 0 &&
+      Math.round(estimate.total * 100) > Math.round(state.budget * 100),
+  };
 }
 export function applyAction(input, action, payload, voter) {
   const state = normalizeState(input);
@@ -282,9 +544,41 @@ export function applyAction(input, action, payload, voter) {
       state.preferences = {
         vegetarian: payload.preferences?.vegetarian === true,
         quick: payload.preferences?.quick === true,
+        keto: payload.preferences?.keto === true,
       };
+      if (payload.strategy !== undefined) {
+        if (!["votes", "balanced", "cheapest"].includes(payload.strategy))
+          throw new Error("Choose a valid savings mode.");
+        state.strategy = payload.strategy;
+      }
+      if (payload.budget !== undefined) {
+        if (
+          !Number.isFinite(payload.budget) ||
+          payload.budget < 0 ||
+          payload.budget > 10000 ||
+          Math.abs(payload.budget * 100 - Math.round(payload.budget * 100)) >
+            1e-7
+        )
+          throw new Error(
+            "Use a budget from $0 to $10,000 with at most two decimal places.",
+          );
+        state.budget = payload.budget;
+      }
       break;
     }
+    case "prices":
+      if (
+        !Object.hasOwn(priceBook, payload.name) ||
+        !validOffers(payload.offers)
+      )
+        throw new Error(
+          "Enter two valid package offers with positive sizes and prices from $0 to $10,000.",
+        );
+      state.prices[payload.name] = payload.offers.map((o) => ({
+        ...o,
+        label: o.label.trim(),
+      }));
+      break;
     case "finalize":
       state.locked = { ids: selectedMeals(state).map((m) => m.id) };
       if (!state.locked.ids.length)
@@ -316,8 +610,21 @@ export function applyAction(input, action, payload, voter) {
   return state;
 }
 export function listText(state, week) {
-  const items = shoppingList(selectedMeals(state), state.servings).filter(
-    (i) => !state.pantry.includes(i.name),
-  );
-  return `Dinner Table — ${week}${state.locked ? "" : " (draft menu)"}\n${items.map((i) => `${i.name}: ${Number(i.amount.toFixed(2))} ${i.unit}`).join("\n")}`;
+  const planned = planResult(state),
+    items = planned.estimate.items.filter((i) => !i.owned);
+  return `Dinner Table — ${week}${state.locked ? "" : " (draft menu)"}\n${items
+    .map(
+      (i) =>
+        `${i.name}: ${Number(i.amount.toFixed(2))} ${i.unit}\n  Buy ${i.counts
+          .map((n, j) =>
+            n
+              ? `${n} x ${i.offers[j].label} (${i.offers[j].size} ${i.unit})`
+              : "",
+          )
+          .filter(Boolean)
+          .join(" + ")} — estimated $${i.cost.toFixed(2)}`,
+    )
+    .join(
+      "\n",
+    )}\nEstimated grocery subtotal: $${planned.estimate.total.toFixed(2)} USD. Store prices, availability, taxes, and fees may differ. ${planned.overBudget ? "Above your budget target." : ""}`;
 }

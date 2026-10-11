@@ -7,7 +7,10 @@ import {
   shoppingList,
   applyAction,
   listText,
+  planResult,
+  estimateCart,
 } from "./model.js";
+import { priceBook } from "./prices.js";
 import { Cloud } from "./cloud.js";
 const $ = (id) => document.getElementById(id);
 const escape = (value) =>
@@ -19,6 +22,11 @@ const escape = (value) =>
       ],
   );
 const quantity = (item) => `${Number(item.amount.toFixed(2))} ${item.unit}`;
+const money = (value) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
+    value,
+  );
+let priceRenderKey = "";
 let state = normalizeState(),
   week = weekKey(),
   cloud = null,
@@ -43,7 +51,10 @@ function readLocal() {
   try {
     const raw = localStorage.getItem(localKey()),
       saved = raw ? JSON.parse(raw) : {};
-    state = normalizeState(saved);
+    const defaults = JSON.parse(
+      localStorage.getItem("dinner-table:planning") || "{}",
+    );
+    state = normalizeState(raw ? saved : defaults);
     if (!raw || !saved?.preferences) {
       const prefs = JSON.parse(
         localStorage.getItem("dinner-table:preferences") || "{}",
@@ -51,6 +62,7 @@ function readLocal() {
       state.preferences = {
         vegetarian: prefs.vegetarian === true,
         quick: prefs.quick === true,
+        keto: prefs.keto === true,
       };
     }
   } catch {
@@ -64,6 +76,16 @@ function readLocal() {
 function saveLocal() {
   try {
     localStorage.setItem(localKey(), JSON.stringify(state));
+    localStorage.setItem(
+      "dinner-table:planning",
+      JSON.stringify({
+        servings: state.servings,
+        dinners: state.dinners,
+        strategy: state.strategy,
+        budget: state.budget,
+        prices: state.prices,
+      }),
+    );
     localStorage.setItem(
       "dinner-table:preferences",
       JSON.stringify(state.preferences),
@@ -101,18 +123,34 @@ function render() {
   const focus = focusToken();
   const locked = Boolean(state.locked);
   const canManage = owner && !busy;
+  const planned = planResult(state),
+    selected = planned.meals,
+    shopping = planned.estimate.items;
   $("planner").setAttribute("aria-busy", String(busy));
-  $("servings").value = state.servings;
-  $("dinners").value = state.dinners;
-  $("vegetarian-only").checked = state.preferences.vegetarian;
-  $("quick-only").checked = state.preferences.quick;
-  ["servings", "dinners", "vegetarian-only", "quick-only"].forEach(
-    (id) => ($(id).disabled = locked || !canManage),
-  );
+  // Keep the requested settings visible while their shared write is pending.
+  // The completed response (or failure recovery) restores canonical values.
+  if (!busy) {
+    $("servings").value = state.servings;
+    $("dinners").value = state.dinners;
+    $("vegetarian-only").checked = state.preferences.vegetarian;
+    $("quick-only").checked = state.preferences.quick;
+    $("keto-only").checked = state.preferences.keto;
+    $("strategy").value = state.strategy;
+    $("budget").value = state.budget;
+  }
+  [
+    "servings",
+    "dinners",
+    "vegetarian-only",
+    "quick-only",
+    "keto-only",
+    "strategy",
+    "budget",
+  ].forEach((id) => ($(id).disabled = locked || !canManage));
   $("voter-label").hidden = Boolean(home);
   $("voter").value = state.voter;
   $("finalize").textContent = locked ? "Reopen voting" : "Finalize menu";
-  $("finalize").disabled = !canManage || !selectedMeals(state).length;
+  $("finalize").disabled = !canManage || !selected.length;
   $("reset").disabled = !canManage;
   $("week-label").textContent =
     `WEEK OF ${new Date(`${week}T12:00:00`).toLocaleDateString(undefined, { month: "long", day: "numeric" })}${home ? ` · ${home.timezone}` : ""}`;
@@ -134,15 +172,17 @@ function render() {
     ? `${session.user.email} · Changes sync across your household. Updates are checked every 15 seconds while this page is visible.`
     : "Local mode · Names, votes, and pantry choices are saved only in this browser. Different devices do not share this data.";
   const shortage =
-    selectedMeals(state).length < state.dinners
-      ? ` Only ${selectedMeals(state).length} meals match your preferences for ${state.dinners} requested dinners.`
+    selected.length < state.dinners
+      ? ` Only ${selected.length} meals match your preferences for ${state.dinners} requested dinners.`
       : "";
   $("plan-state").textContent = locked
     ? "Menu finalized. Voting and meal settings are paused. Reopen voting to make changes."
-    : `Menu is a draft and will change with votes.${shortage}`;
+    : `Draft menu · Votes, preferences, prices, and pantry choices can change your plan.${shortage}`;
   $("shopping-state").textContent = locked
     ? "Finalized menu · Your shopping list is ready to review."
     : "Draft shopping list · Finalize your menu in Dinner plan before shopping.";
+  $("budget-summary").innerHTML =
+    `<strong>Estimated groceries: ${money(planned.estimate.total)}</strong><span>Full packages for ${selected.length} dinners · ${state.servings} people · ${money(planned.estimate.pantrySavings)} of purchases avoided using pantry items.</span>${planned.savings > 0 && state.strategy !== "votes" && !locked ? `<span>${money(planned.savings)} less than the votes-first menu, using the same estimated prices.</span>` : ""}${planned.overBudget ? `<span class="budget-warning">${money(planned.estimate.total - state.budget)} above your ${money(state.budget)} target.${state.strategy === "votes" ? " Try Votes within budget or Lowest grocery estimate." : locked ? " Reopen your menu to compare alternatives." : " No eligible menu fits this target; adjust dinners, servings, pantry items, or your prices."}</span>` : state.budget > 0 ? `<span>Within your ${money(state.budget)} target.</span>` : ""}<small>Estimated item subtotal only. Store prices and checkout fees can change the total.</small>`;
   const voter = home ? session.user.id : state.voter.trim().toLowerCase();
   const ownVotes = state.votes[voter] || [];
   const filter = $("filter").value;
@@ -152,39 +192,53 @@ function render() {
         (m) =>
           filter === "all" ||
           (filter === "vegetarian" && m.vegetarian) ||
-          (filter === "quick" && m.time <= 30),
+          (filter === "quick" && m.time <= 30) ||
+          (filter === "keto" && m.keto),
       )
       .map((m) => {
         const voted = ownVotes.includes(m.id);
         const count = Object.values(state.votes).filter((v) =>
           v.includes(m.id),
         ).length;
-        return `<article class="card"><div class="dish" style="--dish:${m.color}" aria-hidden="true">${m.emoji}</div><div class="card-content"><span class="tag">${m.vegetarian ? "Vegetarian" : "Household favorite"}</span><h3>${m.name}</h3><p>${m.description}</p><div class="meta">${m.time} min · Serves ${state.servings}</div><div class="vote-row"><span>${count} ${count === 1 ? "vote" : "votes"}</span><button class="vote-button ${voted ? "selected" : ""}" data-meal="${m.id}" aria-pressed="${voted}" aria-label="${voted ? "Remove vote for" : "Vote for"} ${m.name}" ${locked || busy ? "disabled" : ""}>${voted ? "✓ Voted" : "+ Vote"}</button></div></div></article>`;
+        const mealEstimate = estimateCart(
+          [m],
+          state.servings,
+          state.pantry,
+          state.prices,
+        ).total;
+        return `<article class="card"><div class="dish" style="--dish:${m.color}" aria-hidden="true">${m.emoji}</div><div class="card-content"><span class="tag">${m.vegetarian ? "Vegetarian" : "Household favorite"}${m.keto ? " · Keto-style" : ""}</span><h3>${m.name}</h3><p>${m.description}</p><div class="meta">${m.time} min · Serves ${state.servings}</div><div class="meal-price">Est. groceries ${money(mealEstimate)}<small>Packages needed for this dinner; shared ingredients count once in the weekly total.</small></div><div class="vote-row"><span>${count} ${count === 1 ? "vote" : "votes"}</span><button class="vote-button ${voted ? "selected" : ""}" data-meal="${m.id}" aria-pressed="${voted}" aria-label="${voted ? "Remove vote for" : "Vote for"} ${m.name}" ${locked || busy ? "disabled" : ""}>${voted ? "✓ Voted" : "+ Vote"}</button></div></div></article>`;
       })
       .join("") ||
     "<p>No meals match this view. Try another display filter.</p>";
   const hasVotes = Object.values(state.votes).some((v) => v.length);
   $("plan-list").innerHTML =
     `${!hasVotes && !locked ? "<p>No votes yet — this is a suggested plan. Cast votes to shape it.</p>" : ""}` +
-    selectedMeals(state)
+    selected
       .map(
         (m, i) =>
           `<article class="plan-row"><span class="emoji" aria-hidden="true">${m.emoji}</span><div><span class="tag">Dinner ${i + 1}</span><h3>${m.name}</h3><p>${m.time} minutes · ${state.servings} people</p><details><summary>How to make ${m.name.toLowerCase()}</summary><p>${m.steps}</p><p>Ingredients: ${m.ingredients.map(([name, unit, amount]) => `${quantity({ amount: (amount * state.servings) / 4, unit })} ${name.toLowerCase()}`).join(", ")}. Season to taste and check labels for allergens.</p></details></div></article>`,
       )
       .join("");
-  $("shopping").innerHTML = shoppingList(selectedMeals(state), state.servings)
+  $("shopping").innerHTML = shopping
     .map(
       (item) =>
-        `<label class="ingredient ${state.pantry.includes(item.name) ? "checked" : ""}"><input type="checkbox" data-ingredient="${escape(item.name)}" ${state.pantry.includes(item.name) ? "checked" : ""} ${busy ? "disabled" : ""}><span>${item.name}</span><b>${quantity(item)}</b></label>`,
+        `<div class="shopping-item"><label class="ingredient ${item.owned ? "checked" : ""}"><input type="checkbox" data-ingredient="${escape(item.name)}" ${item.owned ? "checked" : ""} ${busy ? "disabled" : ""}><span>${item.name}</span><b>${quantity(item)}</b></label><p class="package-choice">${
+          item.owned
+            ? "Already owned · estimated purchase avoided"
+            : item.counts
+                .map((n, i) =>
+                  n
+                    ? `${n} × ${escape(item.offers[i].label)} (${item.offers[i].size} ${item.unit})`
+                    : "",
+                )
+                .filter(Boolean)
+                .join(" + ")
+        } · ${money(item.cost)}${item.owned ? " avoided" : " estimated"}</p></div>`,
     )
     .join("");
   $("grocery").hidden = !home;
-  $("grocery").disabled =
-    busy ||
-    !locked ||
-    shoppingList(selectedMeals(state), state.servings).every((i) =>
-      state.pantry.includes(i.name),
-    );
+  $("grocery").disabled = busy || !locked || shopping.every((i) => i.owned);
+  renderPrices(locked || !owner);
   $("import").disabled = Boolean(home) || busy;
   $("invite").hidden = !home || !owner;
   $("manage-members").hidden = !home;
@@ -208,6 +262,30 @@ function render() {
   if (!$("copy-fallback-label").hidden)
     $("copy-fallback").value = listText(state, week);
   restoreFocus(focus);
+}
+function renderPrices(readOnly) {
+  const query = $("price-search").value.trim().toLowerCase();
+  const key = JSON.stringify([state.prices, query]);
+  if (key !== priceRenderKey) {
+    const opened = new Set(
+      [...document.querySelectorAll("#price-forms details[open]")].map(
+        (el) => el.dataset.priceName,
+      ),
+    );
+    $("price-forms").innerHTML =
+      Object.entries(priceBook)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([name, entry], index) => {
+          if (!name.toLowerCase().includes(query)) return "";
+          const offers = state.prices[name] || entry.offers;
+          return `<details class="price-entry" data-price-name="${escape(name)}" ${opened.has(name) ? "open" : ""}><summary>${escape(name)} <small>${state.prices[name] ? "Your prices" : "Illustrative estimates"}</small></summary><form data-price-name="${escape(name)}">${offers.map((o, i) => `<fieldset><legend>Package ${i + 1}</legend><label for="price-${index}-${i}-label">Package label</label><input id="price-${index}-${i}-label" name="label-${i}" value="${escape(o.label)}" required maxlength="40"><label for="price-${index}-${i}-size">Package size (${escape(entry.unit)})</label><input id="price-${index}-${i}-size" name="size-${i}" type="number" min="1" max="100000" step="any" value="${o.size}" required><label for="price-${index}-${i}-cost">Package price (USD)</label><input id="price-${index}-${i}-cost" name="price-${i}" type="number" min="0" max="10000" step="0.01" value="${o.price}" required></fieldset>`).join("")}<button type="submit">Save ${escape(name.toLowerCase())} prices</button></form></details>`;
+        })
+        .join("") || "<p>No ingredients match your search.</p>";
+    priceRenderKey = key;
+  }
+  document
+    .querySelectorAll("#price-forms input,#price-forms button")
+    .forEach((el) => (el.disabled = readOnly || busy));
 }
 async function confirmChange(message) {
   $("confirm-description").textContent = message;
@@ -249,6 +327,10 @@ function acceptSnapshot(snapshot) {
   if (!snapshot || !/^\d{4}-\d{2}-\d{2}$/.test(snapshot.week))
     throw new Error(
       "The household response was incomplete. Check that the database migration was applied.",
+    );
+  if (snapshot.schemaVersion !== 2)
+    throw new Error(
+      "Shared savings and keto planning need the latest database migration. Apply 202610110002_savings_keto.sql from the setup guide, then refresh.",
     );
   week = snapshot.week;
   state = normalizeState(snapshot.state);
@@ -346,7 +428,8 @@ $("voter").addEventListener("input", () => {
 });
 function settings() {
   const servings = Number($("servings").value),
-    dinners = Number($("dinners").value);
+    dinners = Number($("dinners").value),
+    budget = Number($("budget").value);
   if (!Number.isInteger(servings) || servings < 1 || servings > 20) {
     error("Choose a whole number from 1 to 20 for people.");
     render();
@@ -359,12 +442,36 @@ function settings() {
     preferences: {
       vegetarian: $("vegetarian-only").checked,
       quick: $("quick-only").checked,
+      keto: $("keto-only").checked,
     },
+    strategy: $("strategy").value,
+    budget,
   });
 }
-["servings", "dinners", "vegetarian-only", "quick-only"].forEach((id) =>
-  $(id).addEventListener("change", settings),
+[
+  "servings",
+  "dinners",
+  "vegetarian-only",
+  "quick-only",
+  "keto-only",
+  "strategy",
+  "budget",
+].forEach((id) => $(id).addEventListener("change", settings));
+$("price-search").addEventListener("input", () =>
+  renderPrices(Boolean(state.locked) || !owner),
 );
+$("price-forms").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const form = event.target.closest("form[data-price-name]");
+  if (!form || busy) return;
+  const values = new FormData(form);
+  const offers = [0, 1].map((i) => ({
+    label: values.get(`label-${i}`),
+    size: Number(values.get(`size-${i}`)),
+    price: Number(values.get(`price-${i}`)),
+  }));
+  act("prices", { name: form.dataset.priceName, offers });
+});
 $("filter").addEventListener("change", render);
 $("finalize").addEventListener("click", async () => {
   const action = state.locked ? "reopen" : "finalize";
@@ -687,7 +794,12 @@ $("members").addEventListener("click", async (e) => {
   });
 });
 async function refreshIfNeeded() {
-  if (busy || document.hidden) return;
+  if (
+    busy ||
+    document.hidden ||
+    document.activeElement?.closest("#price-editor")
+  )
+    return;
   if (!home) {
     if (weekKey() !== week) {
       readLocal();
@@ -735,7 +847,12 @@ window.addEventListener("offline", () => {
 });
 document.addEventListener("visibilitychange", refreshIfNeeded);
 window.addEventListener("storage", (e) => {
-  if (!home && [localKey(), "dinner-table:preferences"].includes(e.key)) {
+  if (
+    !home &&
+    [localKey(), "dinner-table:preferences", "dinner-table:planning"].includes(
+      e.key,
+    )
+  ) {
     readLocal();
     render();
     announce("Local planner updated in another tab.");

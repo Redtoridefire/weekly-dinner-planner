@@ -161,6 +161,44 @@
         <p class="notice" id="mode-note">
           Local mode · This browser saves your votes and pantry choices.
         </p>
+        <details id="savings-controls" class="preferences savings-controls">
+          <summary>Save on this week’s groceries</summary>
+          <div class="savings-fields">
+            <label
+              >Plan priority<select id="strategy">
+                <option value="votes">Votes first</option>
+                <option value="balanced">Votes within budget</option>
+                <option value="cheapest">Lowest grocery estimate</option>
+              </select></label
+            ><label
+              >Weekly grocery target (USD)<input
+                id="budget"
+                type="number"
+                min="0"
+                max="10000"
+                step="0.01"
+                value="0"
+                aria-describedby="budget-help"
+            /></label>
+          </div>
+          <p id="budget-help">
+            Zero means no target. Lowest grocery estimate compares every
+            eligible menu and package combination. Votes within budget favors
+            popular dinners that fit; if none fit, it shows the least expensive
+            plan and the shortfall.
+          </p>
+          <p>
+            Prices are illustrative USD estimates until you enter your own store
+            prices. Tax, delivery, service fees, discounts, and retailer
+            availability aren’t included.
+          </p>
+        </details>
+        <div
+          id="budget-summary"
+          class="budget-summary"
+          aria-live="polite"
+          aria-atomic="true"
+        ></div>
         <nav aria-label="Planner views" role="tablist">
           <button
             id="tab-vote"
@@ -212,11 +250,16 @@
               ><label
                 ><input id="quick-only" type="checkbox" /> 30 minutes or
                 less</label
+              ><label
+                ><input id="keto-only" type="checkbox" /> Keto-style meals
+                only</label
               >
             </div>
             <p>
               Preferences aren’t allergy checks. Review ingredient labels; use
-              vegetarian-certified cheeses and sauces where needed.
+              vegetarian-certified cheeses and sauces where needed. Keto-style
+              recipes avoid starches and sweetened sauces; check product labels
+              and your daily carbohydrate target.
             </p>
           </details>
           <div class="section-intro">
@@ -230,6 +273,7 @@
                 <option value="all">All meals</option>
                 <option value="vegetarian">Vegetarian</option>
                 <option value="quick">30 minutes or less</option>
+                <option value="keto">Keto-style</option>
               </select></label
             >
           </div>
@@ -244,8 +288,8 @@
         >
           <div class="section-intro">
             <p>
-              Your top picks, ranked by household votes. Ties follow the
-              suggestion order.
+              Your weekly picks, using your chosen plan priority and dietary
+              preferences.
             </p>
             <button id="finalize" class="primary">Finalize menu</button>
           </div>
@@ -263,7 +307,8 @@
           <div class="section-intro">
             <p>
               Ingredients combined for your household. Check off anything
-              already in your pantry.
+              already in your pantry, only if you have enough for the displayed
+              quantity.
             </p>
             <div class="button-group">
               <button id="copy" class="primary">Copy shopping list</button
@@ -278,6 +323,24 @@
             and water are pantry staples.
           </p>
           <div id="shopping"></div>
+          <details id="price-editor" class="preferences">
+            <summary>Your store’s package prices</summary>
+            <p>
+              Compare two packages per ingredient, such as store brand and bulk.
+              Enter each package’s price and the amount it contains in the
+              displayed unit. The estimator can mix packages when that costs
+              less. Package labels are your notes; they do not identify retailer
+              products.
+            </p>
+            <label
+              >Find an ingredient<input
+                id="price-search"
+                type="search"
+                placeholder="e.g. chicken"
+                autocomplete="off"
+            /></label>
+            <div id="price-forms"></div>
+          </details>
           <label id="copy-fallback-label" hidden
             >Shopping list to copy<textarea
               id="copy-fallback"

@@ -1,7 +1,75 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { PGlite } from "@electric-sql/pglite";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
+
+test("keto savings, price editing, budget shortfalls, and package downloads work on mobile", async ({
+  page,
+}) => {
+  await page.route("**/config.json", (r) =>
+    r.fulfill({ json: { supabaseUrl: "", supabaseKey: "" } }),
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/");
+  await page.locator("#vote .preferences summary").click();
+  await page.locator("#keto-only").check();
+  await expect(page.locator(".card")).toHaveCount(7);
+  await page.locator("#vegetarian-only").check();
+  await expect(page.locator(".card")).toHaveCount(3);
+  await page.locator("#savings-controls summary").click();
+  await page.locator("#strategy").selectOption("cheapest");
+  await page.locator("#dinners").selectOption("2");
+  await page.locator("#budget").fill("1");
+  await page.locator("#budget").press("Tab");
+  await expect(page.locator("#budget-summary")).toContainText(
+    "No eligible menu fits",
+  );
+  await expect(page.locator("#budget-summary")).toContainText("$16.65");
+  await page.locator("#tab-shop").click();
+  await page.locator("#price-editor > summary").click();
+  await page.locator("#price-search").fill("Eggs");
+  await page.locator("#price-forms summary").click();
+  const form = page.locator("#price-forms form");
+  await form.locator('[name="price-0"]').fill("40");
+  await form.locator('[name="price-1"]').fill("60");
+  await form.locator("button").click();
+  await expect(form.locator('[name="price-0"]')).toHaveValue("40");
+  await expect(page.locator("#budget-summary")).toContainText("$64.00");
+  await page.locator("#tab-plan").click();
+  await page.locator("#finalize").click();
+  await page.locator("#tab-shop").click();
+  await expect(form.locator("button")).toBeDisabled();
+  await expect(page.locator(".package-choice").first()).toContainText(
+    "estimated",
+  );
+  const downloaded = page.waitForEvent("download");
+  await page.locator("#download").click();
+  const download = await downloaded;
+  const text = await readFile(await download.path(), "utf8");
+  expect(text).toContain("Buy ");
+  expect(text).toContain("Estimated grocery subtotal");
+  const analysis = await new AxeBuilder({ page }).analyze();
+  expect(analysis.violations).toEqual([]);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.reload();
+  await page.locator("#savings-controls summary").click();
+  await expect(page.locator("#strategy")).toHaveValue("cheapest");
+  await expect(page.locator("#budget")).toHaveValue("1");
+  await page.evaluate(() => {
+    for (const key of Object.keys(localStorage))
+      if (/^dinner-table:\d{4}/.test(key)) localStorage.removeItem(key);
+  });
+  await page.reload();
+  await expect(page.locator("#dinners")).toHaveValue("2");
+  await expect(page.locator("#budget-summary")).toContainText("$64.00");
+  expect(errors).toEqual([]);
+});
 
 test("configured sign-in submits an email link request and gives delivery feedback", async ({
   page,
@@ -81,10 +149,10 @@ test("local household flow, pantry, finalized persistence, keyboard tabs, and mo
   );
   await page.locator("#voter").fill("Sam");
   await page.locator('[data-meal="curry"]').click();
-  await page.locator(".preferences summary").click();
+  await page.locator("#vote .preferences summary").click();
   await page.locator("#vegetarian-only").check();
   await page.locator("#quick-only").check();
-  await expect(page.locator(".card")).toHaveCount(4);
+  await expect(page.locator(".card")).toHaveCount(7);
   await page.locator("#tab-vote").focus();
   await page.keyboard.press("ArrowRight");
   await expect(page.locator("#tab-plan")).toBeFocused();
@@ -93,7 +161,7 @@ test("local household flow, pantry, finalized persistence, keyboard tabs, and mo
     "true",
   );
   await expect(page.locator(".plan-row h3").first()).toContainText("curry");
-  await expect(page.locator("#plan-state")).toContainText("Only 4");
+  await expect(page.locator(".plan-row")).toHaveCount(5);
   await page.locator("#finalize").click();
   await expect(page.locator("#servings")).toBeDisabled();
   await page.reload();
@@ -198,9 +266,10 @@ test("shared household works between two authenticated devices with real Postgre
   await db.exec(
     `create role anon;create role authenticated;create schema auth;create table auth.users(id uuid primary key,email text);create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;grant usage on schema auth to authenticated;`,
   );
-  await db.exec(
-    await readFile("supabase/migrations/202610110001_dinner_table.sql", "utf8"),
-  );
+  for (const file of (await readdir("supabase/migrations"))
+    .filter((f) => f.endsWith(".sql"))
+    .sort())
+    await db.exec(await readFile(`supabase/migrations/${file}`, "utf8"));
   const owner = "00000000-0000-4000-8000-000000000001",
     member = "00000000-0000-4000-8000-000000000002";
   await db.query("insert into auth.users values($1,$2),($3,$4)", [
@@ -338,6 +407,32 @@ test("shared household works between two authenticated devices with real Postgre
       "Shared household",
     );
     await expect(b.page.locator("#servings")).toBeDisabled();
+    await a.page.locator("#vote .preferences summary").click();
+    await a.page.locator("#keto-only").check();
+    await b.page.locator("#refresh").click();
+    await expect(b.page.locator(".card")).toHaveCount(7);
+    await expect(b.page.locator("#keto-only")).toBeDisabled();
+    await a.page.locator("#keto-only").uncheck();
+    await a.page.locator("#savings-controls > summary").click();
+    await a.page.locator("#strategy").selectOption("balanced");
+    await a.page.locator("#tab-shop").click();
+    await a.page.locator("#price-editor > summary").click();
+    await a.page.locator("#price-search").fill("Olive oil");
+    await a.page.locator("#price-forms summary").click();
+    await a.page.locator('#price-forms [name="price-0"]').fill("4");
+    await a.page.locator("#price-forms button").click();
+    await b.page.locator("#refresh").click();
+    await expect(b.page.locator(".card")).toHaveCount(15);
+    await expect(b.page.locator("#strategy")).toHaveValue("balanced");
+    await b.page.locator("#tab-shop").click();
+    await b.page.locator("#price-editor > summary").click();
+    await b.page.locator("#price-search").fill("Olive oil");
+    await b.page.locator("#price-forms summary").click();
+    await expect(b.page.locator('#price-forms [name="price-0"]')).toHaveValue(
+      "4",
+    );
+    await expect(b.page.locator("#price-forms button")).toBeDisabled();
+    await b.page.locator("#tab-vote").click();
     await b.page.locator('[data-meal="curry"]').click();
     await expect(b.page.locator('[data-meal="curry"]')).toHaveAttribute(
       "aria-pressed",
