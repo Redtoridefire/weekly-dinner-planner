@@ -1,0 +1,6 @@
+project_id = "the-dinner-table"
+
+[functions.grocery-link]
+# The handler verifies the user's bearer token with Supabase Auth, supporting
+# publishable keys and new signing keys without relying on legacy gateway JWTs.
+verify_jwt = false
