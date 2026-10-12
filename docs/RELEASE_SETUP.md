@@ -4,10 +4,22 @@ The repository contains the frontend, database migrations, Edge Function, tests,
 
 ## 1. Create the Supabase project
 
-Create a project in your Supabase account. In its SQL Editor, run these complete files once, in order:
+Create a project in your Supabase account, or use your existing project. The SQL Editor needs the **complete SQL contents**, not a filename or file path. For each file below, open it in GitHub, click **Raw** or **Copy raw file**, and copy all the code. Paste it into a new Supabase SQL Editor query and click **Run**. Run the first file successfully before the second:
 
-1. `supabase/migrations/202610110001_dinner_table.sql`
-2. `supabase/migrations/202610110002_savings_keto.sql`
+1. [Initial database SQL](https://github.com/Redtoridefire/weekly-dinner-planner/blob/main/supabase/migrations/202610110001_dinner_table.sql)
+2. [Savings and keto SQL](https://github.com/Redtoridefire/weekly-dinner-planner/blob/main/supabase/migrations/202610110002_savings_keto.sql)
+
+If you see `syntax error at or near "supabase"` after entering a path, clear the query and paste the file's SQL contents instead. That failed path-only query did not change the database.
+
+After both files succeed, run this separate SQL query:
+
+```sql
+select
+  (select count(*) from public.dinner_catalog) as recipes,
+  (select count(*) from public.dinner_pricebook) as priced_ingredients;
+```
+
+Expect **15 recipes** and **41 priced ingredients**.
 
 Alternatively, link the Supabase CLI to your project and run `supabase db push`. If the first migration is already installed, apply only the new savings/keto migration and redeploy the updated grocery-link Edge Function. The upgrade preserves existing votes and finalized menus. Do not rerun an installed migration. The frontend reports a setup error when connected to a backend missing the savings/keto migration.
 
