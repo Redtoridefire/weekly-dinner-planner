@@ -776,6 +776,7 @@ summary {
   .data-tools,
   footer,
   .checkout,
+  .chatgpt-checkout,
   .settings,
   #mode-note,
   #copy-fallback-label,
@@ -839,6 +840,64 @@ summary {
     display: block;
     font-size: 20pt;
     margin: 20px 0;
+  }
+}
+
+.chatgpt-checkout {
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  border: 1px solid #c8cdb0;
+  border-radius: 10px;
+  background: #f3f4e9;
+}
+.chatgpt-checkout h3 {
+  margin-top: 0;
+}
+.chatgpt-checkout p {
+  font-size: 0.9rem;
+}
+#chatgpt-handoff {
+  margin-top: 1rem;
+}
+#chatgpt-handoff label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+#chatgpt-prompt {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-height: 15rem;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  resize: vertical;
+  background: #fffdf8;
+  color: var(--green);
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+#chatgpt-handoff .button-group {
+  margin-top: 0.75rem;
+}
+#open-chatgpt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 6px;
+  text-decoration: none;
+}
+@media (max-width: 750px) {
+  #chatgpt-handoff .button-group > * {
+    width: 100%;
+    text-align: center;
+  }
+  #prepare-chatgpt {
+    width: 100%;
   }
 }
 

@@ -348,16 +348,83 @@
               rows="8"
             ></textarea>
           </label>
+          <section class="chatgpt-checkout" aria-labelledby="chatgpt-title">
+            <h3 id="chatgpt-title" tabindex="-1">Shop with ChatGPT</h3>
+            <p>
+              Prepare your finalized meals and grocery list for the Instacart
+              app in ChatGPT. Review and copy the instructions below, then
+              choose Instacart in your ChatGPT conversation if it is available
+              in your account.
+            </p>
+            <p
+              id="chatgpt-state"
+              class="notice"
+              aria-live="polite"
+              aria-atomic="true"
+            ></p>
+            <button
+              id="prepare-chatgpt"
+              class="primary"
+              aria-controls="chatgpt-handoff"
+              aria-expanded="false"
+              disabled
+            >
+              Shop with ChatGPT
+            </button>
+            <div id="chatgpt-handoff" hidden>
+              <label for="chatgpt-prompt"
+                >Shopping instructions to review and copy</label
+              >
+              <textarea
+                id="chatgpt-prompt"
+                rows="12"
+                readonly
+                spellcheck="false"
+                aria-describedby="chatgpt-help"
+              ></textarea>
+              <div class="button-group">
+                <button id="copy-chatgpt" class="primary">
+                  Copy ChatGPT instructions
+                </button>
+                <a
+                  id="open-chatgpt"
+                  href="https://chatgpt.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="primary"
+                  >Open ChatGPT (new tab) ↗</a
+                >
+                <button id="download-chatgpt">Download instructions</button>
+              </div>
+              <p id="chatgpt-help">
+                Copy the instructions, open ChatGPT, choose or connect
+                Instacart, and paste them into your conversation. This page does
+                not send them automatically. If copying is unavailable, select
+                the text above or download it. Prepare again after changing the
+                menu or pantry; replace any copy you already pasted or
+                downloaded.
+              </p>
+            </div>
+            <p>
+              The instructions ask for your approval of the actual cart,
+              substitutions, delivery details, fees, tip, and final total before
+              purchase. Our prices are estimates. You approve checkout in
+              ChatGPT or Instacart; this website does not place orders.
+              Instacart availability and checkout features depend on your
+              account.
+            </p>
+          </section>
           <div class="checkout">
             <div>
-              <h3>A final look before checkout.</h3>
+              <h3>Optional direct Instacart link</h3>
               <p id="grocery-description">
-                Copy your list into your grocery service. Review products,
+                Creating a shopping link here requires Instacart developer API
+                access and the grocery function setup. You can also open
+                Instacart and use your copied list. Review products,
                 substitutions, prices, delivery, and payment there.
               </p>
             </div>
-            <button id="grocery" class="primary" hidden>
-              Create Instacart shopping link</button
+            <button id="grocery" hidden>Create Instacart shopping link</button
             ><a
               id="grocery-link"
               href="https://www.instacart.com/"

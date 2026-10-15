@@ -3,6 +3,149 @@ import AxeBuilder from "@axe-core/playwright";
 import { PGlite } from "@electric-sql/pglite";
 import { readFile, readdir } from "node:fs/promises";
 
+test("ChatGPT handoff previews the finalized menu, copies/downloads, and invalidates after changes", async ({
+  page,
+}) => {
+  await page.route("**/config.json", (route) =>
+    route.fulfill({ json: { supabaseUrl: "", supabaseKey: "" } }),
+  );
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const outbound = [];
+  page.on("request", (request) => {
+    if (/chatgpt\.com|instacart\./.test(request.url()))
+      outbound.push(request.url());
+  });
+  await page.goto("/");
+  await expect(page.locator("#connection-state")).toHaveText("Local mode");
+  await page.locator("#tab-shop").click();
+  await expect(page.locator("#prepare-chatgpt")).toBeDisabled();
+  await expect(page.locator("#chatgpt-state")).toContainText(
+    "Finalize your menu",
+  );
+  await page.locator("#tab-vote").click();
+  await page.locator("#vote .preferences summary").click();
+  await page.locator("#keto-only").check();
+  await page.locator("#vegetarian-only").check();
+  await page.locator("#servings").fill("2");
+  await page.locator("#servings").press("Tab");
+  await page.locator("#dinners").selectOption("2");
+  await page.locator("#tab-plan").click();
+  await page.locator("#finalize").click();
+  await page.locator("#tab-shop").click();
+  await page.locator('[data-ingredient="Butter"]').check();
+  await page.locator("#prepare-chatgpt").click();
+  await expect(page.locator("#chatgpt-handoff")).toBeVisible();
+  await expect(page.locator("#prepare-chatgpt")).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
+  const text = await page.locator("#chatgpt-prompt").inputValue();
+  expect(text).toContain("Cheesy cabbage & egg skillet — serves 2");
+  expect(text).toContain("Eggs: 8 pieces required");
+  expect(
+    text.split("GROCERIES TO BUY")[1].split("PANTRY EXCLUSIONS")[0],
+  ).not.toContain("Butter");
+  expect(text).toContain(
+    "explicit approval of that specific final cart and payable total",
+  );
+  await page.locator("#copy-chatgpt").click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(text);
+  const downloading = page.waitForEvent("download");
+  await page.locator("#download-chatgpt").click();
+  const download = await downloading;
+  expect(download.suggestedFilename()).toMatch(/^dinner-chatgpt-.*\.txt$/);
+  expect(await readFile(await download.path(), "utf8")).toBe(text);
+  expect(outbound).toEqual([]);
+  await expect(page.locator("#open-chatgpt")).toHaveAttribute(
+    "href",
+    "https://chatgpt.com/",
+  );
+  await expect(page.locator("#open-chatgpt")).toHaveAttribute(
+    "rel",
+    "noopener noreferrer",
+  );
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.context().route("https://chatgpt.com/**", (route) =>
+    route.fulfill({
+      contentType: "text/html",
+      body: "<title>ChatGPT handoff test</title>",
+    }),
+  );
+  const opening = page.waitForEvent("popup");
+  await page.locator("#open-chatgpt").click();
+  const popup = await opening;
+  await popup.waitForLoadState();
+  expect(popup.url()).toBe("https://chatgpt.com/");
+  expect(outbound.every((url) => !url.includes("?"))).toBe(true);
+  await popup.close();
+  await page.locator('[data-ingredient="Eggs"]').check();
+  await expect(page.locator("#chatgpt-handoff")).toBeHidden();
+  await expect(page.locator("#chatgpt-prompt")).toHaveValue("");
+  await page.locator("#prepare-chatgpt").click();
+  expect(
+    (await page.locator("#chatgpt-prompt").inputValue())
+      .split("GROCERIES TO BUY")[1]
+      .split("PANTRY EXCLUSIONS")[0],
+  ).not.toContain("Eggs");
+  await page.reload();
+  await page.locator("#tab-shop").click();
+  await expect(page.locator("#chatgpt-handoff")).toBeHidden();
+  for (const name of await page
+    .locator("[data-ingredient]")
+    .evaluateAll((els) => els.map((el) => el.dataset.ingredient)))
+    await page.locator(`[data-ingredient="${name}"]`).check();
+  await expect(page.locator("#prepare-chatgpt")).toBeDisabled();
+  await expect(page.locator("#chatgpt-state")).toContainText("nothing to shop");
+  await page.locator("#tab-plan").click();
+  await page.locator("#finalize").click();
+  await page.locator('#confirm-dialog button[value="confirm"]').click();
+  await page.locator("#tab-shop").click();
+  await expect(page.locator("#prepare-chatgpt")).toBeDisabled();
+  await expect(page.locator("#chatgpt-state")).toContainText(
+    "Finalize your menu",
+  );
+});
+
+test("ChatGPT instructions remain manually copyable when clipboard access is blocked", async ({
+  page,
+}) => {
+  await page.route("**/config.json", (route) =>
+    route.fulfill({ json: { supabaseUrl: "", supabaseKey: "" } }),
+  );
+  await page.addInitScript(() =>
+    Object.defineProperty(navigator, "clipboard", {
+      value: {
+        writeText: async () => {
+          throw Error("blocked");
+        },
+      },
+    }),
+  );
+  await page.goto("/");
+  await expect(page.locator("#connection-state")).toHaveText("Local mode");
+  await page.locator("#tab-plan").click();
+  await page.locator("#finalize").click();
+  await page.locator("#tab-shop").click();
+  await page.locator("#prepare-chatgpt").click();
+  await page.locator("#copy-chatgpt").click();
+  await expect(page.locator("#chatgpt-prompt")).toBeFocused();
+  await expect(page.locator("#status")).toContainText(
+    "highlighted ChatGPT instructions",
+  );
+  expect(
+    await page
+      .locator("#chatgpt-prompt")
+      .evaluate((el) => el.selectionEnd - el.selectionStart),
+  ).toBe((await page.locator("#chatgpt-prompt").inputValue()).length);
+  await expect(page.locator("#copy-fallback-label")).toBeHidden();
+});
+
 test("keto savings, price editing, budget shortfalls, and package downloads work on mobile", async ({
   page,
 }) => {
@@ -101,7 +244,7 @@ test("configured sign-in submits an email link request and gives delivery feedba
   expect(submitted.body.email).toBe("alex@example.test");
   expect(submitted.url).toContain("/auth/v1/otp");
   expect(new URL(submitted.url).searchParams.get("redirect_to")).toBe(
-    "http://127.0.0.1:4173/",
+    new URL("/", page.url()).href,
   );
 });
 
@@ -454,12 +597,49 @@ test("shared household works between two authenticated devices with real Postgre
       "href",
       "https://www.instacart.com/store/shopping_lists/test",
     );
+    await a.page.locator("#price-search").focus();
+    const changed = b.page.locator("[data-ingredient]:not(:checked)").first();
+    const changedName = await changed.getAttribute("data-ingredient");
+    await b.page.locator(`[data-ingredient="${changedName}"]`).check();
+    await a.page.locator("#prepare-chatgpt").click();
+    await expect(a.page.locator("#chatgpt-handoff")).toBeVisible();
+    const prompt = await a.page.locator("#chatgpt-prompt").inputValue();
+    expect(prompt).toContain(`${changedName}:`);
+    expect(
+      prompt.split("GROCERIES TO BUY")[1].split("PANTRY EXCLUSIONS")[0],
+    ).not.toContain(`${changedName}:`);
+    expect(prompt).not.toContain("alex@example.test");
+    expect(prompt).not.toContain("sam@example.test");
+    await b.page.locator(`[data-ingredient="${changedName}"]`).uncheck();
+    await a.page.locator("#refresh").click();
+    await expect(a.page.locator("#chatgpt-handoff")).toBeHidden();
+    await a.page.route(
+      "https://project.supabase.co/rest/v1/rpc/dinner_snapshot",
+      (route) =>
+        route.fulfill({
+          status: 503,
+          json: { message: "Snapshot temporarily unavailable" },
+        }),
+    );
+    await a.page.locator("#prepare-chatgpt").click();
+    await expect(a.page.locator("#error")).toContainText(
+      "Snapshot temporarily unavailable",
+    );
+    await expect(a.page.locator("#chatgpt-prompt")).toHaveValue("");
+    await a.page.unroute(
+      "https://project.supabase.co/rest/v1/rpc/dinner_snapshot",
+    );
+    await a.page.locator("#prepare-chatgpt").click();
+    await expect(a.page.locator("#chatgpt-handoff")).toBeVisible();
     const accessibility = await new AxeBuilder({ page: a.page }).analyze();
     expect(accessibility.violations).toEqual([]);
     await a.page.locator("#manage-members").click();
     await expect(a.page.locator(".member-row")).toHaveCount(2);
     await a.page.locator(`[data-remove-member="${member}"]`).click();
     await a.page.locator('#confirm-dialog button[value="confirm"]').click();
+    await b.page.locator("#prepare-chatgpt").click();
+    await expect(b.page.locator("#error")).toContainText("belong");
+    await expect(b.page.locator("#chatgpt-handoff")).toBeHidden();
     await b.page.locator("#refresh").click();
     await expect(b.page.locator("#connection-state")).toHaveText("Local trial");
   } finally {

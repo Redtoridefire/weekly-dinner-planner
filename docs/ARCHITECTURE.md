@@ -16,6 +16,14 @@ Menu finalization uses the database recipe catalog, recorded votes, dietary pref
 
 Invitations contain 64 hexadecimal characters generated from two random UUIDs. Only their SHA-256 hashes are stored. Each expires after seven days or ten joins, and generating a fresh invitation invalidates the previous code. Joining is transactional. Each account is limited to ten households; each household to twenty members. This is intended for household use rather than a public social platform.
 
+## ChatGPT handoff boundary
+
+`chatgpt-handoff.js` exports a text-only, finalized-menu shopping request from normalized planner data. It combines quantities once, separates pantry exclusions, includes package estimates and dietary/budget preferences, and requests itemized actual-cart review and explicit purchase approval. Its data selection excludes account metadata, membership/vote data, invitation codes, and auth credentials. Package labels are quoted as data. The prompt specifies that live prices/availability and successful cart/order operations must come from the connected service.
+
+A shared preparation refreshes the authorized snapshot before producing text; errors stop export. The in-memory preview is bound to the current user, household, week, and revision. Changes clear the preview, including reopening, pantry edits, account/household switches, and week changes when received. A failed new preparation clears any previous preview. Copy/download actions reject an invalidated preview and local week rollover. The preview is not persisted or put into a URL. The ChatGPT link is the fixed HTTPS home page with no query parameters and `noopener noreferrer`; sharing is an explicit user copy/paste step. Data already copied elsewhere cannot be revoked by this app and must be replaced manually after updates.
+
+The export makes no OpenAI/Instacart calls, provides no custom MCP server, and has no cart/payment permissions. Approval language is an instruction to the external conversation; this app cannot enforce or attest to another service's checkout behavior. Actual product matching, live prices, account eligibility, cart creation, and checkout are unverified external capabilities.
+
 ## Grocery boundary
 
 The Edge Function verifies the caller with Supabase Auth, fetches the membership-scoped current snapshot and canonical catalog, checks finalization and the expected revision, and reserves a database-backed rate-limit slot. It aggregates and scales ingredients, excludes pantry selections, adds package recommendations from the canonical pricebook and household overrides, and calls the fixed Instacart development or production host. It validates returned HTTPS links and does not expose upstream errors or API credentials. Configured origins govern browser CORS access; authorization still relies on authenticated household membership.

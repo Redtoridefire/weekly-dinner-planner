@@ -34,14 +34,15 @@ In the Codex environment, use `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/chromium 
 - Owner-only menu finalization, reopening, resetting, and settings in shared mode.
 - Supabase email-link sign-in, household creation, private invitation codes, membership removal, leaving, and household deletion.
 - Row-level security, validated atomic mutations, version conflict detection, and server-calculated winners.
-- Authenticated, rate-limited Instacart shopping-list endpoint; the API key stays on the server.
+- Finalized-menu handoff to ChatGPT: preview, copy/download shopping instructions, and open ChatGPT with an explicit cart-review and purchase-approval request.
+- Optional authenticated, rate-limited Instacart shopping-list endpoint; the API key stays on the server.
 - Clipboard fallback, text downloads, printable menu and list, and private JSON backups. Backups restore into local mode only.
 - Keyboard tabs, focus recovery, labelled controls, live feedback, error handling, mobile layout, and automated accessibility checks.
 - Vercel configuration and GitHub Actions checks / Pages deployment.
 
 ## Activate shared voting and grocery handoff
 
-Follow [Release setup](docs/RELEASE_SETUP.md). The code and connections are prepared, but a real Supabase project, email delivery, hosting, and Instacart developer credentials still need to be configured by the owner. No live site or external project has been deployed from this checkout.
+Follow [Release setup](docs/RELEASE_SETUP.md). Shared mode needs your Supabase project, email delivery, and hosting. The ChatGPT handoff needs no OpenAI API key, Instacart developer key, new migration, or Edge Function deployment; access to Instacart within ChatGPT depends on your account. The optional direct Instacart endpoint requires separate developer credentials. Deployment and live-account behavior must be verified in your own accounts.
 
 Keep public project configuration in `config.json`, Vercel environment variables, or GitHub Actions repository variables. Never add an Instacart key, Supabase service-role key, or database password to browser configuration. The build rejects known secret key formats and only emits its two public configuration fields.
 
@@ -54,6 +55,18 @@ Shared changes are checked every 15 seconds while the page is visible. Refresh h
 Copy, download, or print the grocery list at any time. After finalizing a shared menu, Create Instacart shopping link uses the server's current menu and excludes pantry ingredients. The resulting link opens Instacart for product matching, substitutions, prices, address, payment, and checkout. The app never purchases groceries or stores delivery/payment details. The Instacart endpoint has been tested with simulated provider responses; live provider compatibility and production approval must be verified with your API account.
 
 Recipes are estimates. Review food allergens and use vegetarian-certified cheeses and sauces where needed. Keto-style recipes omit major starches and sweetened sauces; nutrition is not calculated or verified. Check product labels and your daily carbohydrate target. Salt, pepper, water, and kitchen equipment are assumed. This is a small curated catalog, not an AI recipe generator or a nutrition service.
+
+## Shop with ChatGPT
+
+1. Finalize your menu, then open **Shopping list → Shop with ChatGPT**.
+2. Review the prepared text. It includes meal names, servings, combined grocery quantities, pantry exclusions, package recommendations, estimated costs, dietary preferences, and your item budget.
+3. Choose **Copy ChatGPT instructions** or **Download instructions**. If clipboard access is blocked, the text is selected for manual copying.
+4. Choose **Open ChatGPT**, select/connect Instacart if it is available in your account, and paste the instructions into the conversation. Nothing is automatically sent to ChatGPT or Instacart.
+5. Review the actual cart, quantities, substitutions, delivery/pickup details, fees, taxes, tip, and payable total. Approve any purchase through the checkout flow supported by your ChatGPT/Instacart account. If that integration is unavailable, use the ordinary grocery list for manual shopping.
+
+The generated instructions request explicit approval before any order/payment, and fresh approval if the cart or payable total changes. This website does not place orders or enforce another service's checkout behavior. Preparing instructions is not purchase approval. Actual product matching, prices, availability, cart creation, and checkout depend on the external integration; those capabilities have not been verified with a live account here.
+
+Shared preparation first refreshes the household from Supabase and stops on a failed refresh, revoked access, a reopened menu, or an all-owned grocery list. Prepared text is cleared when the app receives a changed household/week/revision, changes accounts, or reloads. Already copied/downloaded text is a snapshot; replace it manually after plan changes. The export excludes votes, member names, account IDs, emails, invitation codes, and authentication credentials. It includes ingredient/package-label notes and is only shared when you copy/paste or otherwise send it yourself. The link opens the ChatGPT home page without putting your plan in its URL. No custom planner MCP server or automatic background shopping is implemented.
 
 ## Saving money and choosing keto
 

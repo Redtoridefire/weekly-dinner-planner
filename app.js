@@ -12,6 +12,7 @@ import {
 } from "./model.js";
 import { priceBook } from "./prices.js";
 import { Cloud } from "./cloud.js";
+import { chatgptShoppingText } from "./chatgpt-handoff.js";
 const $ = (id) => document.getElementById(id);
 const escape = (value) =>
   String(value).replace(
@@ -27,6 +28,7 @@ const money = (value) =>
     value,
   );
 let priceRenderKey = "";
+let chatgptHandoff = null;
 let state = normalizeState(),
   week = weekKey(),
   cloud = null,
@@ -238,6 +240,7 @@ function render() {
     .join("");
   $("grocery").hidden = !home;
   $("grocery").disabled = busy || !locked || shopping.every((i) => i.owned);
+  renderChatgpt(shopping);
   renderPrices(locked || !owner);
   $("import").disabled = Boolean(home) || busy;
   $("invite").hidden = !home || !owner;
@@ -262,6 +265,70 @@ function render() {
   if (!$("copy-fallback-label").hidden)
     $("copy-fallback").value = listText(state, week);
   restoreFocus(focus);
+}
+const checkoutVersion = () =>
+  JSON.stringify([
+    session?.user.id || null,
+    home?.id || null,
+    week,
+    state.revision,
+    state.locked,
+    state.servings,
+    state.preferences,
+    state.pantry,
+    state.prices,
+    state.budget,
+  ]);
+function renderChatgpt(shopping) {
+  const stale = chatgptHandoff && chatgptHandoff.version !== checkoutVersion();
+  const recoverFocus =
+    stale && $("chatgpt-handoff").contains(document.activeElement);
+  if (stale) {
+    chatgptHandoff = null;
+    announce(
+      "The planner changed. Prepare new ChatGPT instructions before shopping.",
+    );
+  }
+  const nothingToBuy = shopping.every((item) => item.owned);
+  $("prepare-chatgpt").disabled = busy || !state.locked || nothingToBuy;
+  $("prepare-chatgpt").setAttribute(
+    "aria-expanded",
+    String(Boolean(chatgptHandoff)),
+  );
+  $("chatgpt-handoff").hidden = !chatgptHandoff;
+  if ($("chatgpt-prompt").value !== (chatgptHandoff?.text || ""))
+    $("chatgpt-prompt").value = chatgptHandoff?.text || "";
+  $("copy-chatgpt").disabled = busy || !chatgptHandoff;
+  $("download-chatgpt").disabled = busy || !chatgptHandoff;
+  $("chatgpt-state").textContent = !state.locked
+    ? "Finalize your menu in Dinner plan to prepare shopping instructions."
+    : nothingToBuy
+      ? "Everything on this menu is marked as already owned. There is nothing to shop for."
+      : chatgptHandoff
+        ? `Prepared for the week of ${week}. Review the instructions before sharing them.`
+        : "Ready to prepare your finalized menu. No Instacart developer key is needed for this handoff.";
+  if (recoverFocus)
+    ($("prepare-chatgpt").disabled
+      ? $("chatgpt-title")
+      : $("prepare-chatgpt")
+    ).focus({ preventScroll: true });
+}
+function currentChatgptText() {
+  if (busy) return null;
+  if (!home && weekKey() !== week) {
+    readLocal();
+    render();
+    error(
+      "A new week has started. Finalize this week’s menu before preparing shopping instructions.",
+    );
+    return null;
+  }
+  if (!chatgptHandoff || chatgptHandoff.version !== checkoutVersion()) {
+    render();
+    error("Prepare new ChatGPT instructions for the current finalized menu.");
+    return null;
+  }
+  return chatgptHandoff.text;
 }
 function renderPrices(readOnly) {
   const query = $("price-search").value.trim().toLowerCase();
@@ -514,7 +581,11 @@ $("shopping").addEventListener("change", (e) => {
       enabled: e.target.checked,
     });
 });
-async function copyText(text, input) {
+async function copyText(
+  text,
+  input,
+  fallbackMessage = "Select and copy the highlighted invitation code.",
+) {
   try {
     await navigator.clipboard.writeText(text);
     announce("Copied to clipboard.");
@@ -522,7 +593,7 @@ async function copyText(text, input) {
     if (input) {
       input.focus();
       input.select();
-      announce("Select and copy the highlighted invitation code.");
+      announce(fallbackMessage);
     } else {
       $("copy-fallback-label").hidden = false;
       $("copy-fallback").value = text;
@@ -548,6 +619,36 @@ function download(contents, name, type) {
 $("download").addEventListener("click", () =>
   download(listText(state, week), `dinner-shopping-${week}.txt`, "text/plain"),
 );
+$("prepare-chatgpt").addEventListener("click", () => {
+  if (busy) return;
+  chatgptHandoff = null;
+  task(async () => {
+    if (home) acceptSnapshot(await cloud.snapshot(home.id));
+    else if (weekKey() !== week) readLocal();
+    const text = chatgptShoppingText(state, week);
+    chatgptHandoff = { version: checkoutVersion(), text };
+    announce(
+      "Shopping instructions prepared. Review them, copy them, and paste them into ChatGPT. No order has been placed.",
+    );
+  });
+});
+$("copy-chatgpt").addEventListener("click", () => {
+  const text = currentChatgptText();
+  if (text)
+    copyText(
+      text,
+      $("chatgpt-prompt"),
+      "Clipboard unavailable. Select and copy the highlighted ChatGPT instructions.",
+    );
+});
+$("download-chatgpt").addEventListener("click", () => {
+  const text = currentChatgptText();
+  if (text)
+    download(text, `dinner-chatgpt-${week}.txt`, "text/plain;charset=utf-8");
+});
+$("open-chatgpt").addEventListener("click", (event) => {
+  if (!currentChatgptText()) event.preventDefault();
+});
 $("export").addEventListener("click", () => {
   download(
     JSON.stringify(

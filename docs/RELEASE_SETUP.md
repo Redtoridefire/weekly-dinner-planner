@@ -50,7 +50,17 @@ Keep email authentication and new-user signups enabled so invited household memb
 
 Test with two real household email addresses. Check spam folders and provider delivery logs if links do not arrive. Clicking a link should return to the deployed page and show your email plus create/join actions.
 
-## 4. Deploy the grocery Edge Function
+## 4. Use the ChatGPT shopping handoff
+
+This path requires no Instacart developer key or OpenAI API key. Existing deployments need only the updated frontend; there are no new database migrations or grocery-function changes for release 1.2.0.
+
+Finalize your menu, open **Shopping list**, and click **Shop with ChatGPT**. Review the prepared instructions, click **Copy ChatGPT instructions**, then **Open ChatGPT**. Select/connect Instacart in ChatGPT if it is available in your account and paste the text. Download or manually copy the preview if clipboard access is unavailable.
+
+The instructions include the finalized meals, household portions, combined ingredient quantities, pantry exclusions, keto/vegetarian preferences, budget, package suggestions, and clearly labelled price estimates. They request a review of actual products, prices, substitutions, delivery details, fees, taxes, tip, and final total, followed by explicit purchase approval. The website does not submit purchases. It cannot guarantee another service's behavior or access to Instacart tools/cart/checkout. If Instacart is unavailable in ChatGPT, use the ordinary copied list for manual shopping.
+
+Preparation refreshes a shared household before export; it needs a connection and current membership. Finalize again if the owner reopened the menu. No handoff is prepared when all groceries are marked as owned. Prepare new instructions after changing the plan or pantry and replace any text already shared. ChatGPT account setup and live checkout behavior remain manual verification steps.
+
+## 5. Optional: deploy the direct grocery Edge Function
 
 Obtain an **Instacart Developer Platform** API key with shopping-list link access. Development credentials and production approval are separate. Verify current access and the product-link API contract in your Instacart developer account before switching to production. This environment could not access Instacart's documentation host and has no provider credentials, so live compatibility is not yet proven.
 
@@ -76,7 +86,7 @@ The development destination is `connect.dev.instacart.tools`; production is `con
 
 Missing secrets, invalid sessions, unfinalized menus, stale revisions, provider failures, and exhausted limits have visible recovery messages. Each household is limited to one attempt per 30 seconds and 20 per UTC day. Failed provider attempts count toward that limit. Copy / download / print remain usable without any Instacart integration.
 
-## 5. Finish the live acceptance checks
+## 6. Finish the live acceptance checks
 
 Use [Release checks](RELEASE_CHECKS.md). Do not call the release live until those checks pass on the deployed URL. API key entry, email delivery, Instacart account approval, production checkout, and publication cannot be validated by the local simulated-provider tests.
 
